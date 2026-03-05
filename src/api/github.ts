@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { GitHubIssue, GitHubRepo } from '@/types'
 
 const githubClient = axios.create({
-  baseURL: '/api/github',
+  baseURL: import.meta.env.VITE_GITHUB_API_BASE as string,
   headers: {
     'Accept': 'application/vnd.github+json',
   },

@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { GitLabIssue, GitLabProject } from '@/types'
 
 const gitlabClient = axios.create({
-  baseURL: '/api/gitlab',
+  baseURL: import.meta.env.VITE_GITLAB_API_BASE as string,
 })
 
 gitlabClient.interceptors.request.use((config) => {
