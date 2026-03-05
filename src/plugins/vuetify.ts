@@ -2,7 +2,6 @@ import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify } from 'vuetify'
 import { md3 } from 'vuetify/blueprints'
-import { VCalendar } from 'vuetify/labs/VCalendar'
 
 const lightTheme = {
   dark: false,
@@ -45,7 +44,6 @@ const darkTheme = {
 }
 
 export const vuetify = createVuetify({
-  components: { VCalendar },
   blueprint: md3,
   theme: {
     defaultTheme: 'light',

@@ -7,10 +7,22 @@ import type { Timebox } from '@/types'
 const timeboxStore = useTimeboxStore()
 const router = useRouter()
 
-const viewMode = ref<'month' | 'week' | 'day'>('week')
-const currentDate = ref(new Date())
+type CalViewType = 'week' | 'month' | 'day'
+const viewType = ref<CalViewType>('week')
+const focus = ref(toCalDate(new Date()))
 
-// Timeboxes that have been started (have a startTime) → shown on calendar
+/** Format Date → "YYYY-MM-DD" (calendar focus value) */
+function toCalDate(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+/** Format Date → "YYYY-MM-DD HH:MM" (timed event format expected by VCalendar) */
+function toCalDateTime(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Timeboxes that have been started → shown as timed calendar events
 const calendarEvents = computed(() =>
   timeboxStore.timeboxes
     .filter((tb: Timebox) => !!tb.startTime)
@@ -19,11 +31,18 @@ const calendarEvents = computed(() =>
       const end = tb.endTime
         ? new Date(tb.endTime)
         : new Date(start.getTime() + tb.duration * 60 * 1000)
-      return { id: tb.id, title: tb.title, start, end, color: tb.color }
+      return {
+        _id: tb.id,
+        name: tb.title,
+        start: toCalDateTime(start),
+        end: toCalDateTime(end),
+        color: tb.color,
+        timed: true,
+      }
     })
 )
 
-// Pending timeboxes with no startTime → shown in side panel
+// Pending timeboxes with no startTime → side panel
 const unscheduled = computed(() =>
   timeboxStore.timeboxes.filter((tb: Timebox) => !tb.startTime && tb.status !== 'completed')
 )
@@ -35,36 +54,32 @@ const statusColor: Record<string, string> = {
   completed: 'info',
 }
 
-function onEventClick(event: { id: string }) {
-  router.push(`/timeboxes/${event.id}`)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onEventClick(_domEvent: Event, scope: any) {
+  router.push(`/timeboxes/${scope.event._id}`)
 }
 
 function prevPeriod() {
-  const d = new Date(currentDate.value)
-  if (viewMode.value === 'month') d.setMonth(d.getMonth() - 1)
-  else if (viewMode.value === 'week') d.setDate(d.getDate() - 7)
+  const d = new Date(focus.value)
+  if (viewType.value === 'month') d.setMonth(d.getMonth() - 1)
+  else if (viewType.value === 'week') d.setDate(d.getDate() - 7)
   else d.setDate(d.getDate() - 1)
-  currentDate.value = d
+  focus.value = toCalDate(d)
 }
 
 function nextPeriod() {
-  const d = new Date(currentDate.value)
-  if (viewMode.value === 'month') d.setMonth(d.getMonth() + 1)
-  else if (viewMode.value === 'week') d.setDate(d.getDate() + 7)
+  const d = new Date(focus.value)
+  if (viewType.value === 'month') d.setMonth(d.getMonth() + 1)
+  else if (viewType.value === 'week') d.setDate(d.getDate() + 7)
   else d.setDate(d.getDate() + 1)
-  currentDate.value = d
-}
-
-function goToday() {
-  currentDate.value = new Date()
+  focus.value = toCalDate(d)
 }
 
 const periodLabel = computed(() => {
-  const d = currentDate.value
-  if (viewMode.value === 'month') {
+  const d = new Date(focus.value)
+  if (viewType.value === 'month')
     return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  }
-  if (viewMode.value === 'week') {
+  if (viewType.value === 'week') {
     const start = new Date(d)
     start.setDate(d.getDate() - d.getDay())
     const end = new Date(start)
@@ -82,14 +97,16 @@ const periodLabel = computed(() => {
       <v-col>
         <h1 class="text-h5 font-weight-bold">Calendar</h1>
       </v-col>
-      <v-col cols="auto" class="d-flex align-center gap-2">
-        <v-btn variant="tonal" size="small" rounded="lg" @click="goToday">Today</v-btn>
+      <v-col cols="auto" class="d-flex align-center ga-2">
+        <v-btn variant="tonal" size="small" rounded="lg" @click="focus = toCalDate(new Date())">
+          Today
+        </v-btn>
         <v-btn icon="mdi-chevron-left" variant="text" size="small" @click="prevPeriod" />
-        <span class="text-body-1 font-weight-medium" style="min-width:220px; text-align:center">
+        <span class="text-body-1 font-weight-medium" style="min-width: 220px; text-align: center">
           {{ periodLabel }}
         </span>
         <v-btn icon="mdi-chevron-right" variant="text" size="small" @click="nextPeriod" />
-        <v-btn-toggle v-model="viewMode" mandatory density="compact" rounded="lg" class="ml-2">
+        <v-btn-toggle v-model="viewType" mandatory density="compact" rounded="lg" class="ml-2">
           <v-btn value="month" size="small">Month</v-btn>
           <v-btn value="week" size="small">Week</v-btn>
           <v-btn value="day" size="small">Day</v-btn>
@@ -102,20 +119,13 @@ const periodLabel = computed(() => {
       <v-col cols="12" md="9">
         <v-card elevation="1" rounded="xl" class="overflow-hidden">
           <v-calendar
-            v-model="currentDate"
+            v-model="focus"
+            :type="viewType"
             :events="calendarEvents"
-            :view-mode="viewMode"
-          >
-            <template #event="{ event }">
-              <div
-                class="calendar-event pa-1 rounded text-caption font-weight-medium"
-                :style="{ backgroundColor: event.color, color: '#fff', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }"
-                @click="onEventClick(event)"
-              >
-                {{ event.title }}
-              </div>
-            </template>
-          </v-calendar>
+            event-color="color"
+            event-name="name"
+            @click:event="onEventClick"
+          />
         </v-card>
       </v-col>
 
@@ -123,11 +133,12 @@ const periodLabel = computed(() => {
       <v-col cols="12" md="3">
         <v-card elevation="1" rounded="xl" class="pa-4">
           <div class="text-subtitle-2 font-weight-bold mb-1">Unscheduled</div>
-          <div class="text-caption text-medium-emphasis mb-3">
-            Timeboxes not yet started
-          </div>
+          <div class="text-caption text-medium-emphasis mb-3">Timeboxes not yet started</div>
 
-          <div v-if="unscheduled.length === 0" class="text-caption text-medium-emphasis text-center py-4">
+          <div
+            v-if="unscheduled.length === 0"
+            class="text-caption text-medium-emphasis text-center py-4"
+          >
             All timeboxes are scheduled.
           </div>
 
@@ -158,7 +169,11 @@ const periodLabel = computed(() => {
         <!-- Legend -->
         <v-card elevation="1" rounded="xl" class="pa-4 mt-3">
           <div class="text-subtitle-2 font-weight-bold mb-2">Status Legend</div>
-          <div v-for="(color, status) in statusColor" :key="status" class="d-flex align-center gap-2 mb-1">
+          <div
+            v-for="(color, status) in statusColor"
+            :key="status"
+            class="d-flex align-center ga-2 mb-1"
+          >
             <v-icon :color="color" icon="mdi-circle" size="12" />
             <span class="text-caption text-capitalize">{{ status }}</span>
           </div>
