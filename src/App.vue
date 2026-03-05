@@ -18,6 +18,7 @@ watch(
 
 const navItems = [
   { title: 'Timeboxes', icon: 'mdi-timer-outline', to: '/timeboxes' },
+  { title: 'Calendar', icon: 'mdi-calendar-month-outline', to: '/calendar' },
   { title: 'GitHub Issues', icon: 'mdi-github', to: '/github' },
   { title: 'GitLab Issues', icon: 'mdi-gitlab', to: '/gitlab' },
   { title: 'Settings', icon: 'mdi-cog-outline', to: '/settings' },

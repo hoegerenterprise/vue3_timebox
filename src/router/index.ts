@@ -32,6 +32,12 @@ const router = createRouter({
       meta: { title: 'GitLab Issues' },
     },
     {
+      path: '/calendar',
+      name: 'calendar',
+      component: () => import('@/views/CalendarView.vue'),
+      meta: { title: 'Calendar' },
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
